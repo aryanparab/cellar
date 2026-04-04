@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Cellar</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0e0c0a; --surface: #1a1714; --surface2: #231f1b;
+  --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+  --text: #ede8e0; --text2: #9a9082; --text3: #5a5248;
+  --accent: #8b4a2f; --gold: #c9a84c; --gold2: #e8c97a;
+  --r: 10px; --rl: 16px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 60px; }
+
+/* Header */
+header { padding: 24px 32px 18px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+header h1 { font-size: 19px; font-weight: 500; color: var(--gold); letter-spacing: -0.3px; white-space: nowrap; }
+.filter-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-btn { font-size: 12px; padding: 5px 14px; border: 0.5px solid var(--border2); border-radius: 20px; background: transparent; color: var(--text2); cursor: pointer; transition: all 0.15s; }
+.filter-btn:hover, .filter-btn.on { background: var(--surface2); color: var(--text); border-color: var(--gold); }
+.catalog-count { font-size: 12px; color: var(--text3); margin-left: auto; white-space: nowrap; }
+
+/* Grid */
+.grid-wrap { padding: 24px 32px; }
+.wine-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); gap: 14px; }
+.wine-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--rl); overflow: hidden; cursor: pointer; transition: border-color 0.2s, transform 0.15s; position: relative; z-index: 0; }
+.wine-card:hover { border-color: var(--border2); transform: translateY(-2px); z-index: 1; }
+
+.card-img { height: 196px; background: var(--surface2); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+.card-img img { height: 100%; width: 100%; object-fit: contain; padding: 10px; transition: transform 0.3s; }
+.wine-card:hover .card-img img { transform: scale(1.05); }
+.color-dot { position: absolute; top: 9px; right: 9px; width: 9px; height: 9px; border-radius: 50%; }
+.d-red{background:#8b2020}.d-white{background:#c9b84a}.d-sparkling{background:#8abdd4}.d-rose{background:#c97080}.d-other{background:#666}
+
+.card-hover { position: absolute; inset: 0; background: rgba(10,8,6,0.9); opacity: 0; transition: opacity 0.2s; padding: 14px; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
+.wine-card:hover .card-hover { opacity: 1; }
+.h-region { font-size: 11px; color: var(--gold); text-transform: uppercase; letter-spacing: 0.06em; }
+.h-appellation { font-size: 11px; color: var(--text2); }
+.h-score { font-size: 26px; font-weight: 500; line-height: 1; color: var(--text); }
+.h-source { font-size: 10px; color: var(--text3); margin-top: 1px; }
+.h-price { font-size: 16px; font-weight: 500; color: var(--gold2); }
+.h-varietal { font-size: 11px; color: var(--text3); }
+
+.card-body { padding: 11px 13px; border-top: 0.5px solid var(--border); }
+.card-name { font-size: 12px; font-weight: 500; color: var(--text); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+/* Modal */
+.modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 100; align-items: flex-start; justify-content: center; padding: 32px 16px 80px; overflow-y: auto; }
+.modal-bg.open { display: flex; }
+.modal { background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--rl); width: 100%; max-width: 760px; position: relative; overflow: hidden; }
+.modal-close { position: absolute; top: 12px; right: 12px; background: var(--surface2); border: 0.5px solid var(--border2); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text2); font-size: 15px; z-index: 2; transition: color 0.15s; }
+.modal-close:hover { color: var(--text); }
+
+.modal-top { display: grid; grid-template-columns: 200px 1fr; }
+.modal-img { background: var(--surface2); display: flex; align-items: center; justify-content: center; padding: 20px; min-height: 260px; }
+.modal-img img { max-height: 220px; max-width: 140px; object-fit: contain; }
+.modal-info { padding: 22px 22px 18px; border-left: 0.5px solid var(--border); }
+.m-tag { font-size: 11px; color: var(--gold); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 7px; }
+.m-name { font-size: 17px; font-weight: 500; line-height: 1.3; margin-bottom: 4px; }
+.m-producer { font-size: 13px; color: var(--text2); margin-bottom: 14px; }
+.m-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+.chip { font-size: 11px; padding: 3px 11px; background: var(--surface2); border: 0.5px solid var(--border); border-radius: 20px; color: var(--text2); }
+.chip b { color: var(--text); font-weight: 500; }
+.m-price { font-size: 26px; font-weight: 500; color: var(--gold2); margin-bottom: 14px; }
+.ratings-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.rating-pill { display: flex; flex-direction: column; align-items: center; background: var(--surface2); border: 0.5px solid var(--border); border-radius: 7px; padding: 7px 13px; }
+.rating-pill .s { font-size: 17px; font-weight: 500; }
+.rating-pill .src { font-size: 10px; color: var(--text3); text-align: center; margin-top: 1px; }
+
+/* ── Modal chat (read-only transcript inside modal) ── */
+.modal-chat {
+  border-top: 0.5px solid var(--border);
+  padding: 14px 20px 16px;
+  max-height: 160px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px;
+  scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+}
+.modal-chat::-webkit-scrollbar { width: 3px; }
+.modal-chat::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.modal-chat-empty { font-size: 12px; color: var(--text3); font-style: italic; text-align: center; padding: 8px 0; }
+.modal-chat-you  { align-self: flex-end; font-size: 11px; color: var(--text3); font-style: italic; background: var(--surface2); border-radius: 10px 10px 2px 10px; padding: 5px 10px; max-width: 80%; }
+.modal-chat-bot  { align-self: flex-start; font-size: 12px; color: var(--text); line-height: 1.6; background: var(--surface2); border: 0.5px solid var(--border); border-radius: 2px 10px 10px 10px; padding: 7px 11px; max-width: 92%; }
+
+/* Orb */
+.orb-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 80px; height: 80px; cursor: pointer; }
+.orb-ring { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid var(--border2); transition: border-color 0.2s; }
+.orb-ripple { position: absolute; inset: 0; border-radius: 50%; opacity: 0; }
+.orb-btn {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: var(--surface2);
+  border: 1.5px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  position: relative; z-index: 1;
+}
+.orb-btn svg { width: 22px; height: 22px; fill: var(--text2); transition: fill 0.2s; }
+.orb-btn:hover { border-color: var(--gold); transform: scale(1.05); }
+.orb-btn:hover svg { fill: var(--gold); }
+
+/* States */
+.orb-wrap.idle .orb-btn { }
+
+.orb-wrap.listening .orb-btn { background: rgba(192,57,43,0.15); border-color: #c0392b; }
+.orb-wrap.listening .orb-btn svg { fill: #c0392b; }
+.orb-wrap.listening .orb-ring { border-color: rgba(192,57,43,0.4); animation: ring-pulse 1.4s ease-in-out infinite; }
+.orb-wrap.listening .orb-ripple { animation: ripple 1.4s ease-out infinite; border: 1.5px solid rgba(192,57,43,0.3); }
+
+.orb-wrap.speaking .orb-btn { background: rgba(201,168,76,0.1); border-color: var(--gold); }
+.orb-wrap.speaking .orb-btn svg { fill: var(--gold); }
+.orb-wrap.speaking .orb-ring { border-color: rgba(201,168,76,0.35); animation: ring-pulse 1s ease-in-out infinite; }
+
+.orb-wrap.thinking .orb-btn { border-color: var(--border2); }
+.orb-wrap.thinking .orb-btn svg { fill: var(--text3); animation: spin 1.2s linear infinite; }
+
+@keyframes ring-pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.18);opacity:0.5} }
+@keyframes ripple    { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(1.7);opacity:0} }
+@keyframes spin      { to{transform:rotate(360deg)} }
+
+/* ── Filter panel ── */
+.filter-panel {
+  border-bottom: 0.5px solid var(--border);
+  background: var(--surface);
+  position: relative; z-index: 400;
+}
+.filter-panel-clip {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.filter-panel.open .filter-panel-clip { max-height: 500px; }
+.filter-panel-inner {
+  padding: 14px 32px 16px;
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start;
+}
+.filter-active-pills {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 6px 32px 10px;
+  border-bottom: 0.5px solid var(--border);
+}
+.filter-active-pills:empty { display: none; }
+.f-pill {
+  font-size: 11px; padding: 3px 8px 3px 11px;
+  background: rgba(201,168,76,0.1); border: 0.5px solid var(--gold);
+  border-radius: 20px; color: var(--gold);
+  display: flex; align-items: center; gap: 5px; cursor: default;
+}
+.f-pill-x { cursor: pointer; opacity: 0.6; font-size: 10px; }
+.f-pill-x:hover { opacity: 1; }
+
+/* Individual column filter dropdown */
+.f-col { position: relative; }
+.f-col-btn {
+  font-size: 11px; padding: 5px 22px 5px 11px;
+  border: 0.5px solid var(--border2); border-radius: 20px;
+  background: var(--surface2); color: var(--text2);
+  cursor: pointer; white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+  position: relative;
+}
+.f-col-btn::after {
+  content: '▾'; position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%); font-size: 9px; opacity: 0.5;
+}
+.f-col-btn.has-value { border-color: var(--gold); color: var(--gold); }
+.f-col-btn:hover { border-color: var(--border2); color: var(--text); }
+
+.f-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 300;
+  background: var(--surface2); border: 0.5px solid var(--border2);
+  border-radius: var(--r); min-width: 180px; max-height: 220px;
+  overflow-y: auto; display: none;
+  scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.f-dropdown.open { display: block; }
+.f-dropdown-search {
+  width: 100%; padding: 8px 10px; font-size: 11px;
+  background: transparent; border: none; border-bottom: 0.5px solid var(--border);
+  color: var(--text); outline: none;
+}
+.f-dropdown-search::placeholder { color: var(--text3); }
+.f-option {
+  padding: 7px 11px; font-size: 11px; cursor: pointer;
+  color: var(--text2); transition: background 0.1s, color 0.1s;
+  display: flex; align-items: center; gap: 7px;
+}
+.f-option:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.f-option.selected { color: var(--gold); }
+.f-option.selected::before { content: '✓'; font-size: 10px; }
+.f-option:not(.selected)::before { content: ''; width: 10px; display: inline-block; }
+
+/* Filter toggle button in header */
+.filter-toggle {
+  font-size: 11px; padding: 4px 12px;
+  border: 0.5px solid var(--border2); border-radius: 20px;
+  background: transparent; color: var(--text3); cursor: pointer;
+  transition: all 0.15s; display: flex; align-items: center; gap: 5px;
+}
+.filter-toggle:hover, .filter-toggle.active { border-color: var(--gold); color: var(--gold); }
+.stop-btn {
+  font-size: 10px; padding: 3px 10px; border-radius: 20px;
+  border: 0.5px solid var(--border2); background: transparent;
+  color: var(--text3); cursor: pointer; transition: all 0.15s;
+  letter-spacing: 0.03em;
+}
+.stop-btn:hover { border-color: rgba(192,57,43,0.6); color: #c0392b; }
+
+/* Recommended tab */
+.filter-btn.rec-tab { border-color: var(--gold); color: var(--gold); }
+.filter-btn.rec-tab.on { background: rgba(201,168,76,0.12); }
+
+/* Recommended panel */
+.view-rec { padding: 24px 32px; overflow-y: auto; }
+.rec-group { margin-bottom: 36px; }
+.rec-group-title {
+  font-size: 11px; color: var(--gold); text-transform: uppercase;
+  letter-spacing: 0.07em; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.rec-group-title::after { content: ''; flex: 1; height: 0.5px; background: var(--border2); }
+.rec-group-wine { font-weight: 500; color: var(--text2); }
+.rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+
+/* Rec cards — same as wine-card but slightly muted border */
+.rec-card {
+  background: var(--surface); border: 0.5px solid var(--border);
+  border-radius: var(--rl); overflow: hidden; cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s;
+  position: relative;
+}
+.rec-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+.rec-card .card-img { height: 160px; }
+.rec-badge {
+  position: absolute; top: 8px; left: 8px; z-index: 1;
+  font-size: 9px; padding: 2px 7px; border-radius: 20px;
+  background: rgba(201,168,76,0.18); border: 0.5px solid var(--gold);
+  color: var(--gold); letter-spacing: 0.04em;
+}
+
+/* Memory bar inside panel */
+.mem-row { display: flex; gap: 8px; align-items: center; }
+.mem-badge { font-size: 11px; padding: 2px 9px; border-radius: 20px; border: 0.5px solid var(--border); color: var(--text3); }
+.mem-badge.active { border-color: var(--gold); color: var(--gold); }
+.mem-clear { font-size: 11px; padding: 2px 9px; border-radius: 20px; border: 0.5px solid var(--border); color: var(--text3); background: transparent; cursor: pointer; transition: all 0.15s; }
+.mem-clear:hover { border-color: rgba(192,57,43,0.5); color: #c0392b; }
+
+/* ── Bench bar (bottom 15%) ── */
+body { padding-bottom: 0; }
+
+.bench {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 15vh; min-height: 100px; max-height: 130px;
+  background: var(--surface);
+  border-top: 0.5px solid var(--border2);
+  display: flex; align-items: stretch;
+  z-index: 50;
+}
+
+/* Barkeep avatar section */
+.bench-keeper {
+  flex-shrink: 0; width: 110px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 8px 10px;
+  border-right: 0.5px solid var(--border2);
+  background: var(--surface2);
+}
+.bench-keeper img {
+  width: 48px; height: 48px; border-radius: 50%;
+  object-fit: cover; border: 1.5px solid var(--border2);
+  filter: sepia(0.2);
+}
+.bench-keeper-name { font-size: 10px; color: var(--gold); font-weight: 500; letter-spacing: 0.04em; }
+.bench-keeper-status { font-size: 10px; color: var(--text3); text-align: center; line-height: 1.3; }
+
+/* Orb section */
+.bench-orb {
+  flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 8px 14px;
+  border-right: 0.5px solid var(--border2);
+}
+
+/* Bench orb — smaller than modal orb */
+.bench .orb-wrap { width: 56px; height: 56px; }
+.bench .orb-btn  { width: 46px; height: 46px; }
+.bench .orb-btn svg { width: 17px; height: 17px; }
+.bench .orb-label { font-size: 10px; margin-top: -4px; }
+
+/* Bottles row */
+.bench-bottles {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+  padding: 0 16px; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+}
+.bench-bottles::-webkit-scrollbar { height: 3px; }
+.bench-bottles::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.bench-empty {
+  font-size: 11px; color: var(--text3); white-space: nowrap;
+  font-style: italic; opacity: 0.6;
+}
+
+/* Individual bench bottle */
+.bench-bottle {
+  flex-shrink: 0; position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  cursor: pointer; padding: 6px 8px 6px;
+  border-radius: var(--r);
+  border: 0.5px solid var(--border);
+  background: var(--surface2);
+  transition: border-color 0.2s, transform 0.15s, background 0.2s;
+  width: 68px;
+  animation: bottle-slide-in 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+.bench-bottle:hover { border-color: var(--border2); transform: translateY(-2px); }
+.bench-bottle.active { border-color: var(--gold); background: rgba(201,168,76,0.06); }
+
+@keyframes bottle-slide-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.9); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.bench-bottle img {
+  width: 28px; height: 44px; object-fit: contain;
+}
+.bench-bottle-name {
+  font-size: 9px; color: var(--text2); text-align: center;
+  line-height: 1.3; max-width: 60px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.bench-bottle-x {
+  position: absolute; top: 3px; right: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--surface); border: 0.5px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--text3); line-height: 1;
+  transition: color 0.15s, border-color 0.15s;
+}
+.bench-bottle-x:hover { color: #c0392b; border-color: rgba(192,57,43,0.5); }
+
+/* Transcript in bench (replaces modal voice panel) */
+.bench-transcript {
+  flex-shrink: 0; width: 220px;
+  display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  padding: 8px 14px; border-left: 0.5px solid var(--border2);
+  overflow: hidden;
+}
+.bench-you  { font-size: 10px; color: var(--text3); font-style: italic; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bench-bot  { font-size: 11px; color: var(--text); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* modal padding for bench */
+.modal-bg { padding-bottom: calc(15vh + 16px); }
+
+@media(max-width:580px) {
+  .modal-top { grid-template-columns: 1fr; }
+  .modal-img { min-height: 160px; }
+  .grid-wrap, header { padding-left: 16px; padding-right: 16px; }
+  .bench-transcript { display: none; }
+  .bench-keeper { width: 80px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The Cellar</h1>
+  <div class="filter-row">
+    <button class="filter-btn on" onclick="filter('all',this)">All</button>
+    <button class="filter-btn" onclick="filter('red',this)">Red</button>
+    <button class="filter-btn" onclick="filter('white',this)">White</button>
+    <button class="filter-btn" onclick="filter('sparkling',this)">Sparkling</button>
+    <button class="filter-btn" onclick="filter('rose',this)">Rosé</button>
+    <button class="filter-btn rec-tab" id="recTab" onclick="filter('recommended',this)" style="display:none">✦ Recommended</button>
+  </div>
+  <button class="filter-toggle" id="filterToggle" onclick="toggleFilterPanel()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v2.5l-7 7V20l-4-2v-6.5L3 6.5V4z"/></svg>
+    Filters <span id="filterActiveCount" style="display:none;background:var(--gold);color:#0e0c0a;border-radius:20px;padding:0 5px;font-size:10px;font-weight:600"></span>
+  </button>
+  <span class="catalog-count" id="countLabel">Loading…</span>
+</header>
+
+<!-- Filter panel -->
+<div class="filter-panel" id="filterPanel">
+  <div class="filter-panel-clip">
+    <div class="filter-active-pills" id="filterPills"></div>
+    <div class="filter-panel-inner" id="filterCols"></div>
+  </div>
+</div>
+
+<div class="view-grid" id="viewGrid">
+  <div class="grid-wrap">
+    <div class="wine-grid" id="grid">
+      <div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--text3);font-size:14px">Loading wines…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Recommended panel — hidden until populated -->
+<div class="view-rec" id="viewRec" style="display:none">
+  <div class="rec-panel" id="recPanel"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modalBg" onclick="bgClose(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+
+    <div class="modal-top">
+      <div class="modal-img"><img id="mImg" src="" alt=""></div>
+      <div class="modal-info">
+        <div class="m-tag" id="mTag"></div>
+        <div class="m-name" id="mName"></div>
+        <div class="m-producer" id="mProd"></div>
+        <div class="m-chips" id="mChips"></div>
+        <div class="m-price" id="mPrice"></div>
+        <div class="ratings-row" id="mRatings"></div>
+      </div>
+    </div>
+
+    <!-- Chat transcript (read-only, synced from bench) -->
+    <div class="modal-chat" id="modalChat">
+      <div class="modal-chat-empty" id="modalChatEmpty">The barkeep will speak when you open a bottle…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bench bar ── -->
+<div class="bench">
+
+  <!-- Barkeep avatar -->
+  <div class="bench-keeper">
+    <img src="https://i.pravatar.cc/96?img=51" alt="Barkeep" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22><circle cx=%2224%22 cy=%2224%22 r=%2224%22 fill=%22%23231f1b%22/><text x=%2224%22 y=%2230%22 text-anchor=%22middle%22 font-size=%2220%22>🍷</text></svg>'">
+    <div class="bench-keeper-name">The Barkeep</div>
+    <div class="bench-keeper-status" id="bkStatus">ready when you are</div>
+  </div>
+
+  <!-- Orb — always-on listening indicator + stop button -->
+  <div class="bench-orb">
+    <div class="orb-wrap idle" id="orbWrap">
+      <div class="orb-ring"></div>
+      <div class="orb-ripple"></div>
+      <button class="orb-btn" id="orbBtn" aria-label="Mic status">
+        <svg viewBox="0 0 24 24"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-6 10a6 6 0 0 0 12 0h2a8 8 0 0 1-7 7.93V21h2v2H9v-2h2v-2.07A8 8 0 0 1 4 11h2z"/></svg>
+      </button>
+    </div>
+    <button class="stop-btn" id="stopBtn" onclick="stopBarkeep()">■ stop</button>
+  </div>
+
+  <!-- Bottle tasting row -->
+  <div class="bench-bottles" id="benchBottles">
+    <div class="bench-empty" id="benchEmpty">click a bottle to bring it to the bench…</div>
+  </div>
+
+  <!-- Live transcript -->
+  <div class="bench-transcript">
+    <div class="bench-you" id="benchYou"></div>
+    <div class="bench-bot" id="benchBot"></div>
+  </div>
+
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let wines = [], filtered = [], current = null;
+let memory = [];
+let socket = null;
+let audioContext = null;
+let audioChunks = [], isPlaying = false;
+
+// Bench state
+let benchWines    = [];          // ordered list of wines on the bench
+let introduced    = new Set();   // wine IDs the barkeep has already pitched
+let wineMemory    = {};          // per-wine conversation history: { [id]: [{role,content}] }
+
+// VAD state
+let vadStream = null, vadAnalyser = null, vadProcessor = null, vadSource = null, vadContext = null;
+let vadActive = false;          // mic open and monitoring
+let speechDetected = false;     // currently above threshold
+let silenceTimer = null;
+let pendingTranscript = '';
+
+// Recognition
+let recog = null;
+let recognizing = false;
+
+// Orb state: idle | listening | thinking | speaking
+let orbState = 'idle';
+
+// VAD onset timer (module-scoped so stopVAD can cancel it)
+let speechOnsetTimer = null;
+
+const API     = '/api';
+const API_WS  = `ws://${window.location.host}/api/ws/chat`;
+
+// VAD config
+const VAD_THRESHOLD   = 0.025;   // RMS threshold to detect voice (higher = less sensitive)
+const SILENCE_MS      = 900;     // ms of silence before we consider utterance done
+const SPEECH_ONSET_MS = 150;     // ms signal must stay above threshold before triggering
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function initSocket() {
+  socket = new WebSocket(API_WS);
+  socket.binaryType = 'arraybuffer';
+  socket.onopen  = () => console.log('[WS] connected');
+  socket.onmessage = async (ev) => {
+    if (ev.data instanceof ArrayBuffer) {
+      if (ev.data.byteLength > 0) enqueueAudio(ev.data);
+    } else {
+      const d = JSON.parse(ev.data);
+      if (d.type === 'text_chunk') {
+        console.log(`[WS] text_chunk: "${d.content}"`);
+        appendBotText(d.content);
+      } else if (d.type === 'audio_done') {
+        console.log('[WS] audio_done — detecting recs then playing');
+        // Full text is now in benchBot — save and detect before audio starts
+        const reply = document.getElementById('benchBot')?.textContent?.trim();
+        if (reply && current) {
+          if (!wineMemory[current.id]) wineMemory[current.id] = [];
+          wineMemory[current.id].push({ role: 'assistant', content: reply });
+          memory.push({ role: 'assistant', content: reply });
+          if (window._recIntent) detectRecommendations(reply);
+          window._recIntent = false;
+          const chat = document.getElementById('modalChat');
+          if (chat) chat.querySelectorAll('.modal-chat-bot.streaming').forEach(el => el.classList.remove('streaming'));
+        }
+        await playAccumulatedAudio();
+      }
+    }
+  };
+  socket.onerror = e => console.error('[WS] error', e);
+  socket.onclose = () => setTimeout(initSocket, 1000);
+}
+
+// ── Audio — accumulate all chunks then decode+play the complete buffer ────────
+function enqueueAudio(buffer) {
+  // Just collect — don't try to decode partial MP3 frames mid-stream
+  audioChunks.push(new Uint8Array(buffer));
+  console.log(`[AUDIO] Chunk received: ${buffer.byteLength} bytes, total chunks=${audioChunks.length}`);
+}
+
+async function playAccumulatedAudio() {
+  if (!audioChunks.length) return;
+
+  // Concatenate all chunks into one contiguous buffer
+  const totalLength = audioChunks.reduce((sum, c) => sum + c.byteLength, 0);
+  const merged = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of audioChunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  audioChunks = [];   // clear for next response
+
+  setOrb('speaking');
+  isPlaying = true;
+  try {
+    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') await audioContext.resume();
+    const decoded = await audioContext.decodeAudioData(merged.buffer);
+    await new Promise(res => {
+      const src = audioContext.createBufferSource();
+      src.buffer = decoded;
+      src.connect(audioContext.destination);
+      src.onended = res;
+      src.start();
+    });
+  } catch(e) { console.error('[AUDIO] decode/play error:', e); }
+
+  isPlaying = false;
+  speechDetected = false;
+  if (vadActive) {
+    setOrb('listening');
+    setTimeout(() => { if (vadActive && !recognizing) startRecognition(); }, 200);
+  } else setOrb('idle');
+}
+
+function stopAudio() {
+  audioChunks = [];
+  isPlaying  = false;
+  if (audioContext) { audioContext.close().then(() => audioContext = null); }
+}
+
+// ── Orb state ─────────────────────────────────────────────────────────────────
+const ORB_LABELS = {
+  idle:      'tap to start',
+  listening: 'listening…',
+  thinking:  'thinking…',
+  speaking:  'speaking…',
+};
+
+function setOrb(state) {
+  orbState = state;
+  const wrap  = document.getElementById('orbWrap');
+  const label = document.getElementById('orbLabel');
+  if (wrap)  wrap.className  = `orb-wrap ${state}`;
+  if (label) label.textContent = ORB_LABELS[state] || '';
+  updateBkStatus(state);
+}
+
+function updateBkStatus(state) {
+  const map = { idle:'ready when you are', listening:'listening…', thinking:'thinking…', speaking:'speaking…' };
+  document.getElementById('bkStatus').textContent = map[state] || '';
+}
+
+// ── Transcript UI (bench is primary; modal-chat mirrors it) ───────────────────
+let _lastYou = '';   // track so we can add a "you" bubble to modal-chat
+
+function setYouText(text) {
+  _lastYou = text || '';
+  document.getElementById('benchYou').textContent = text ? `"${text}"` : '';
+  // Add a bubble to modal-chat if modal is open
+  if (document.getElementById('modalBg').classList.contains('open') && text) {
+    const chat = document.getElementById('modalChat');
+    document.getElementById('modalChatEmpty').style.display = 'none';
+    const el = document.createElement('div');
+    el.className = 'modal-chat-you';
+    el.textContent = `"${text}"`;
+    el.dataset.role = 'you-pending'; // will be matched by appendBotText
+    chat.appendChild(el);
+    chat.scrollTop = chat.scrollHeight;
+  }
+}
+
+function appendBotText(chunk) {
+  // Bench mini-transcript
+  document.getElementById('benchBot').textContent += chunk;
+  // Modal-chat: stream into the current bot bubble (create if needed)
+  const chat = document.getElementById('modalChat');
+  if (!chat) return;
+  document.getElementById('modalChatEmpty').style.display = 'none';
+  let botEl = chat.querySelector('.modal-chat-bot.streaming');
+  if (!botEl) {
+    botEl = document.createElement('div');
+    botEl.className = 'modal-chat-bot streaming';
+    chat.appendChild(botEl);
+  }
+  botEl.textContent += chunk;
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function clearTranscript() {
+  document.getElementById('benchYou').textContent = '';
+  document.getElementById('benchBot').textContent  = '';
+  // Modal-chat: remove the streaming class so next reply starts a fresh bubble
+  const chat = document.getElementById('modalChat');
+  if (chat) {
+    chat.querySelectorAll('.modal-chat-bot.streaming').forEach(el => el.classList.remove('streaming'));
+  }
+}
+
+// ── Send question ─────────────────────────────────────────────────────────────
+function benchContext() {
+  if (!benchWines.length) return '';
+  const names = benchWines.map(w => w.name).join(', ');
+  return `Wines currently on the tasting bench: ${names}. The active/selected wine is: ${current?.name || 'none'}.`;
+}
+
+function activeFiltersList() {
+  const list = [];
+  Object.entries(activeFilters).forEach(([col, vals]) => {
+    if (vals.size) list.push(`${colLabel(col)}: ${[...vals].join(', ')}`);
+  });
+  return list;
+}
+
+// Keywords that signal the user wants recommendations
+const REC_INTENT_KEYWORDS = [
+  'recommend', 'similar', 'suggest', 'what else', 'other wine', 'alternative',
+  'like this', 'pair', 'pairing', 'what should', 'what would you', 'something like'
+];
+
+function isRecIntent(q) {
+  const lower = q.toLowerCase();
+  return REC_INTENT_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+function sendQuestion(q) {
+  console.log(`[SEND] sendQuestion called: "${q}" current=${current?.name}`);
+  if (!q || !current) { console.warn('[SEND] Aborted — no question or no wine selected'); return; }
+  window._introSourceId = null;
+  stopAudio();
+  clearTranscript();
+  document.getElementById('benchBot').textContent = '';
+  setYouText(q);
+  setOrb('thinking');
+
+  // Detect recommendation intent — will trigger rec tab population on reply
+  const recIntent = isRecIntent(q);
+  window._recIntent = recIntent;
+
+  const history = (wineMemory[current.id] || []).slice(-10);
+  const filters = activeFiltersList();
+  const contextParts = [];
+  if (benchWines.length > 1) contextParts.push(benchContext());
+  contextParts.push(`Active filters: ${filters.length ? filters.join('; ') : 'none'}.`);
+  if (recIntent) contextParts.push('The user is asking for recommendations — name specific wines from our catalog and end your reply with "I\'ve added these to your Recommended tab."');
+  const qWithContext = `[Context: ${contextParts.join(' ')}]\n${q}`;
+
+  const payload = { question: qWithContext, wine: current, history };
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify(payload));
+  } else {
+    console.warn('[WS] Socket not open, reconnecting…');
+    initSocket();
+    setTimeout(() => socket.send(JSON.stringify(payload)), 600);
+  }
+  memory.push({ role: 'user', content: q });
+  if (!wineMemory[current.id]) wineMemory[current.id] = [];
+  wineMemory[current.id].push({ role: 'user', content: q });
+  updateMemUI();
+}
+
+// ── Stop barkeep + always-on VAD ─────────────────────────────────────────────
+
+function stopVAD() {
+  vadActive = false;
+  speechDetected = false;
+  clearTimeout(silenceTimer);
+  clearTimeout(speechOnsetTimer); // cancel any pending onset debounce
+  if (vadSource)  { try { vadSource.disconnect(); } catch(_) {} vadSource = null; }
+  if (vadContext) { try { vadContext.close(); } catch(_) {} vadContext = null; }
+  if (vadStream)  { vadStream.getTracks().forEach(t => t.stop()); vadStream = null; }
+  console.log('[VAD] Stopped and cleaned up');
+}
+
+function onSilence() {
+  console.log('[VAD] 🔇 Silence — waiting for recognition result');
+  speechDetected = false;
+}
+
+// ── Speech recognition ────────────────────────────────────────────────────────
+function setupRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  const r = new SR();
+  r.lang = 'en-US';
+  r.interimResults = true;
+  r.continuous = false;
+  r.onresult = e => {
+    let interim = '', final = '';
+    for (const res of e.results) {
+      if (res.isFinal) final += res[0].transcript;
+      else interim += res[0].transcript;
+    }
+    const text = (final || interim).trim();
+    console.log(`[RECOG] result — interim="${interim.trim()}" final="${final.trim()}"`);
+    setYouText(text);
+    if (final && final.trim()) {
+      console.log(`[RECOG] ✅ Final transcript: "${final.trim()}" — sending to barkeep`);
+      recognizing = false;
+      sendQuestion(final.trim());
+    }
+  };
+  r.onerror = (e) => {
+    console.error('[RECOG] ❌ Error:', e.error, e.message);
+    recognizing = false;
+    if (vadActive) setOrb('listening');
+  };
+  r.onend = () => {
+    console.log(`[RECOG] ended — recognizing=${recognizing} orbState=${orbState} vadActive=${vadActive}`);
+    recognizing = false;
+    // With always-on VAD, re-arm whenever mic is running (not just when showing 'listening')
+    if (vadActive) {
+      setTimeout(() => {
+        if (vadActive && !recognizing && orbState !== 'thinking') {
+          startRecognition();
+        }
+      }, 300);
+    }
+  };
+  r.onstart = () => console.log('[RECOG] 🎙️ Recognition started');
+  return r;
+}
+
+function startRecognition() {
+  if (!recog) { console.warn('[RECOG] No recognizer available'); return; }
+  if (recognizing) { console.log('[RECOG] Already recognizing, skipping'); return; }
+  recognizing = true;
+  setOrb('listening');
+  console.log('[RECOG] Starting recognition…');
+  try { recog.start(); } catch(e) { console.error('[RECOG] start() threw:', e); recognizing = false; }
+}
+
+// ── Stop barkeep (the only manual control now) ────────────────────────────────
+function stopBarkeep() {
+  stopAudio();
+  audioChunks = [];
+  // Stay in listening state — mic keeps running
+  if (vadActive) setOrb('listening');
+  else setOrb('idle');
+}
+
+// ── Start always-on VAD (called once when first bottle hits bench) ────────────
+async function ensureVADRunning() {
+  if (vadActive) return;
+  try {
+    vadStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) {
+    console.warn('[VAD] Mic denied:', e);
+    return;
+  }
+  if (vadContext) { try { vadContext.close(); } catch(_) {} }
+  vadContext = new (window.AudioContext || window.webkitAudioContext)();
+  if (vadContext.state === 'suspended') await vadContext.resume();
+
+  vadSource   = vadContext.createMediaStreamSource(vadStream);
+  vadAnalyser = vadContext.createAnalyser();
+  vadAnalyser.fftSize = 512;
+  vadSource.connect(vadAnalyser);
+
+  const data = new Float32Array(vadAnalyser.fftSize);
+  let frameCount = 0;
+  speechOnsetTimer = null;
+  vadActive = true;
+  setOrb('listening');
+  console.log('[VAD] ✅ Always-on VAD started');
+
+  function tick() {
+    if (!vadActive) return;
+    vadAnalyser.getFloatTimeDomainData(data);
+    let rms = 0;
+    for (let i = 0; i < data.length; i++) rms += data[i] * data[i];
+    rms = Math.sqrt(rms / data.length);
+
+    frameCount++;
+    if (frameCount % 60 === 0) console.log(`[VAD] rms=${rms.toFixed(4)} speech=${speechDetected} playing=${isPlaying}`);
+
+    if (rms > VAD_THRESHOLD) {
+      if (!speechDetected && !speechOnsetTimer) {
+        speechOnsetTimer = setTimeout(() => {
+          speechDetected = true;
+          speechOnsetTimer = null;
+          console.log(`[VAD] 🎤 Speech confirmed rms=${rms.toFixed(4)}`);
+          // Barge-in: stop audio if playing, then listen
+          if (isPlaying) { stopBarkeep(); }
+          startRecognition();
+        }, SPEECH_ONSET_MS);
+      }
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(onSilence, SILENCE_MS);
+    } else {
+      if (speechOnsetTimer) { clearTimeout(speechOnsetTimer); speechOnsetTimer = null; }
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+// ── Memory UI ─────────────────────────────────────────────────────────────────
+function updateMemUI() {
+  // memory still tracks current wine's convo — update bench bottle badge if needed
+  const badge = document.getElementById('memBadge');
+  if (!badge) return;
+  const ex = Math.floor(memory.length / 2);
+  badge.textContent = ex === 0 ? 'No context yet' : `${ex} turn${ex !== 1 ? 's' : ''} of context`;
+  badge.className   = ex > 0 ? 'mem-badge active' : 'mem-badge';
+}
+
+function clearMem() {
+  if (!memory.length) return;
+  if (!confirm("Clear the barkeep's memory for this wine?")) return;
+  memory = [];
+  if (current) wineMemory[current.id] = [];
+  updateMemUI();
+  clearTranscript();
+}
+
+// ── Bench ─────────────────────────────────────────────────────────────────────
+function renderBench() {
+  const row   = document.getElementById('benchBottles');
+  const empty = document.getElementById('benchEmpty');
+  // remove all existing bottle els
+  row.querySelectorAll('.bench-bottle').forEach(el => el.remove());
+  if (!benchWines.length) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  benchWines.forEach(w => {
+    const div = document.createElement('div');
+    div.className = 'bench-bottle' + (current?.id === w.id ? ' active' : '');
+    div.dataset.id = w.id;
+    const col = (w.color||'').toLowerCase();
+    div.innerHTML = `
+      <span class="bench-bottle-x" onclick="removeFromBench(event,${w.id})">✕</span>
+      ${w.image_url
+        ? `<img src="${escAttr(w.image_url)}" alt="" onerror="this.style.display='none'">`
+        : `<div style="width:28px;height:44px;display:flex;align-items:center;justify-content:center;font-size:18px">🍷</div>`}
+      <div class="bench-bottle-name">${esc(w.name||'')}</div>`;
+    div.addEventListener('click', () => openModal(w.id));
+    row.appendChild(div);
+  });
+}
+
+function addToBench(w) {
+  if (benchWines.find(b => b.id === w.id)) return;
+  benchWines.push(w);
+  if (!wineMemory[w.id]) wineMemory[w.id] = [];
+  renderBench();
+  // Start always-on mic when first bottle arrives
+  ensureVADRunning();
+  setTimeout(() => {
+    const el = document.querySelector(`.bench-bottle[data-id="${w.id}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+  }, 50);
+}
+
+function removeFromBench(e, id) {
+  e.stopPropagation();
+  benchWines = benchWines.filter(w => w.id !== id);
+  delete wineMemory[id];
+  introduced.delete(id);
+  if (current?.id === id) {
+    stopAudio();
+    // Only kill VAD if nothing left on bench
+    if (benchWines.length === 0) {
+      stopVAD();
+      setOrb('idle');
+    }
+    try { recog && recog.abort(); } catch(_) {}
+    recognizing = false;
+    current = null;
+    clearTranscript();
+    document.getElementById('modalBg').classList.remove('open');
+    if (benchWines.length) openModal(benchWines[benchWines.length - 1].id, true);
+  }
+  renderBench();
+}
+
+function autoIntroduce(w) {
+  // Stop any previous speech before introducing the new wine
+  stopAudio();
+  audioChunks = [];
+
+  const wineId = w.id; // capture now — current may change by the time reply arrives
+  const ctx = benchWines.length > 1 ? ` (Other wines on the tasting bench: ${benchWines.filter(b=>b.id!==w.id).map(b=>b.name).join(', ')})` : '';
+  const pitch = `In 2-3 warm sentences, introduce this wine and make me want to try it. Don't ask questions.${ctx}`;
+  clearTranscript();
+  document.getElementById('benchBot').textContent = '';
+  setOrb('thinking');
+  const payload = { question: pitch, wine: w, history: [] };
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify(payload));
+  } else {
+    initSocket();
+    setTimeout(() => socket.send(JSON.stringify(payload)), 600);
+  }
+  wineMemory[w.id].push({ role: 'assistant', content: '(auto-introduction)' });
+  // Tag the pending intro source so detectRecommendations attributes correctly
+  window._introSourceId = wineId;
+}
+
+// ── Wine grid + modal ─────────────────────────────────────────────────────────
+function esc(s)     { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s) { return String(s).replace(/"/g,'&quot;'); }
+
+async function loadWines() {
+  try {
+    const r = await fetch(`${API}/wines`);
+    wines    = await r.json();
+    filtered = [...wines];
+    document.getElementById('countLabel').textContent = `${wines.length} bottles`;
+    renderGrid();
+    buildFilterUI();
+  } catch(e) {
+    document.getElementById('grid').innerHTML =
+      `<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--text3)">
+        Could not reach server.<br><code style="font-size:11px;margin-top:6px;display:block">${e.message}</code>
+      </div>`;
+  }
+}
+
+function parseRatings(raw) {
+  if (!raw) return [];
+  try { const a = typeof raw === 'string' ? JSON.parse(raw) : raw; return Array.isArray(a) ? a : []; }
+  catch { return []; }
+}
+
+function renderGrid() {
+  const g = document.getElementById('grid');
+  if (!filtered.length) { g.innerHTML = '<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--text3)">No wines match</div>'; return; }
+  g.innerHTML = filtered.map(w => {
+    const col    = (w.color||'').toLowerCase();
+    const dotCls = col==='red'?'d-red':col==='white'?'d-white':col==='sparkling'?'d-sparkling':col==='rose'||col==='rosé'?'d-rose':'d-other';
+    const ratings = parseRatings(w.professional_ratings);
+    const top     = ratings[0];
+    const price   = w.retail ? `$${parseFloat(w.retail).toFixed(0)}` : '—';
+    const imgHtml = w.image_url
+      ? `<img src="${escAttr(w.image_url)}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div style=font-size:11px;color:var(--text3)>No image</div>'">`
+      : `<div style="font-size:11px;color:var(--text3)">${col||'wine'}</div>`;
+    return `<div class="wine-card" onclick="openModal(${w.id})">
+      <div class="card-img">
+        ${imgHtml}
+        <div class="color-dot ${dotCls}"></div>
+        <div class="card-hover">
+          <div class="h-region">${esc(w.region||'')}${w.country?' · '+esc(w.country):''}</div>
+          <div class="h-appellation">${esc(w.appellation||'')}</div>
+          ${top?`<div class="h-score">${top.score}</div><div class="h-source">${esc(top.source)}</div>`:''}
+          <div class="h-price">${price}</div>
+          <div class="h-varietal">${esc(w.varietal||'')} ${esc(String(w.vintage||''))}</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-name">${esc(w.name||'')}</div>
+        <div class="card-sub">${esc(w.producer||'')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filter(color, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  if (color === 'recommended') {
+    document.getElementById('viewGrid').style.display = 'none';
+    document.getElementById('viewRec').style.display  = '';
+    return;
+  }
+  document.getElementById('viewGrid').style.display = '';
+  document.getElementById('viewRec').style.display  = 'none';
+  currentColorFilter = color;
+  applyFilters();
+}
+
+function openModal(id, skipIntro = false) {
+  const w = wines.find(x => x.id == id);
+  if (!w) return;
+
+  const isSwitch  = current && current.id !== w.id;
+  const firstTime = !introduced.has(w.id);
+
+  // If switching wines, abort recognizer but keep audio + VAD running
+  if (isSwitch) {
+    try { recog && recog.abort(); } catch(_) {}
+    recognizing = false;
+    if (current) wineMemory[current.id] = [...memory];
+  }
+
+  // Restore this wine's memory
+  memory  = wineMemory[w.id] ? [...wineMemory[w.id]] : [];
+  current = w;
+
+  // Add to bench (no-op if already there)
+  addToBench(w);
+  renderBench(); // re-render to update active state
+
+  // Populate modal
+  document.getElementById('mImg').src          = w.image_url || '';
+  document.getElementById('mTag').textContent  = [w.appellation, w.region, w.country].filter(Boolean).join(' · ');
+  document.getElementById('mName').textContent = w.name || '';
+  document.getElementById('mProd').textContent = w.producer || '';
+  document.getElementById('mPrice').textContent = w.retail ? `$${parseFloat(w.retail).toFixed(2)}` : '';
+
+  document.getElementById('mChips').innerHTML = [
+    w.varietal   && `<div class="chip">${esc(w.varietal)}</div>`,
+    w.vintage    && `<div class="chip">Vintage <b>${w.vintage}</b></div>`,
+    w.abv        && `<div class="chip">ABV <b>${w.abv}%</b></div>`,
+    w.volume_ml  && `<div class="chip"><b>${w.volume_ml}ml</b></div>`,
+  ].filter(Boolean).join('');
+
+  const ratings = parseRatings(w.professional_ratings);
+  document.getElementById('mRatings').innerHTML = ratings.map(r =>
+    `<div class="rating-pill"><span class="s">${r.score}</span><span class="src">${esc(r.source)}</span></div>`
+  ).join('');
+
+  // Reset modal-chat and restore conversation bubbles for this wine
+  const chat = document.getElementById('modalChat');
+  const emptyEl = document.getElementById('modalChatEmpty');
+  chat.innerHTML = '';
+  chat.appendChild(emptyEl);
+  emptyEl.style.display = '';
+  const hist = wineMemory[w.id] || [];
+  const convoHist = hist.filter(m => m.content !== '(auto-introduction)');
+  if (convoHist.length) {
+    emptyEl.style.display = 'none';
+    convoHist.forEach(m => {
+      const el = document.createElement('div');
+      el.className = m.role === 'user' ? 'modal-chat-you' : 'modal-chat-bot';
+      el.textContent = m.role === 'user' ? `"${m.content}"` : m.content;
+      chat.appendChild(el);
+    });
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  updateMemUI();
+  setOrb(vadActive ? orbState : 'idle');
+
+  document.getElementById('modalBg').classList.add('open');
+
+  // Auto-introduce on first visit
+  if (firstTime && !skipIntro) {
+    introduced.add(w.id);
+    setTimeout(() => autoIntroduce(w), 400); // slight delay feels natural
+  }
+}
+
+function closeModal() {
+  // Save memory for this wine before closing
+  if (current) wineMemory[current.id] = [...memory];
+  document.getElementById('modalBg').classList.remove('open');
+  // Don't stop audio or VAD — barkeep keeps talking from bench
+  // Don't null current — orb still works for follow-ups
+}
+
+function bgClose(e) {
+  if (e.target !== document.getElementById('modalBg')) return;
+  // Check if the click position is over a wine-card in the grid below
+  // by temporarily hiding the overlay and doing an elementFromPoint lookup
+  const overlay = document.getElementById('modalBg');
+  overlay.style.pointerEvents = 'none';
+  const below = document.elementFromPoint(e.clientX, e.clientY);
+  overlay.style.pointerEvents = '';
+  const card = below?.closest('.wine-card');
+  if (card) {
+    const onclickAttr = card.getAttribute('onclick');
+    const idMatch = onclickAttr && onclickAttr.match(/openModal\((\d+)\)/);
+    closeModal();
+    if (idMatch) setTimeout(() => openModal(Number(idMatch[1])), 0);
+  } else {
+    closeModal();
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── Recommended wines ─────────────────────────────────────────────────────────
+// Each entry: { sourceWine: {id, name}, recs: [{id, name, matchedText}] }
+let recGroups = [];
+
+function detectRecommendations(reply) {
+  const sourceId = window._introSourceId || current?.id;
+  const sourceWine = wines.find(w => w.id === sourceId) || current;
+  window._introSourceId = null;
+  if (!sourceWine) return;
+
+  const replyLower = reply.toLowerCase();
+  const benchIds = new Set(benchWines.map(w => w.id));
+
+  // Get wines already in THIS source group (don't re-add same wine to same group)
+  const existingGroup = recGroups.find(g => g.sourceWine.id === sourceWine.id);
+  const groupRecIds = new Set(existingGroup ? existingGroup.recs.map(r => r.id) : []);
+
+  const matched = wines.filter(w => {
+    if (benchIds.has(w.id)) return false;
+    if (groupRecIds.has(w.id)) return false;
+    const fullName = (w.name || '').toLowerCase();
+    // Only match on significant words (≥6 chars) to avoid generic terms
+    // like "blanc", "noir", "gran", "clos", "reserve", "estate"
+    const sigWords = fullName.split(/[\s,\-\/]+/).filter(word => word.length >= 6);
+    if (!sigWords.length) return false;
+    const matchedWords = sigWords.filter(word => replyLower.includes(word));
+    if (!matchedWords.length) return false;
+    // Require at least 2 matching significant words, OR 1 word that is rare
+    // (appears in ≤3 catalog wine names — i.e. it's a specific proper noun)
+    if (matchedWords.length >= 2) return true;
+    const word = matchedWords[0];
+    const rarity = wines.filter(x => (x.name||'').toLowerCase().includes(word)).length;
+    return rarity <= 3;
+  });
+
+  if (!matched.length) return;
+
+  let group = existingGroup;
+  if (!group) {
+    group = { sourceWine: { id: sourceWine.id, name: sourceWine.name }, recs: [] };
+    recGroups.push(group);
+  }
+  matched.forEach(w => group.recs.push(w));
+
+  renderRecPanel();
+
+  const tab = document.getElementById('recTab');
+  if (tab) tab.style.display = '';
+  console.log('[REC] Added under', sourceWine.name, ':', matched.map(w => w.name));
+}
+
+function renderRecPanel() {
+  const panel = document.getElementById('recPanel');
+  if (!panel) return;
+
+  recGroups.forEach(group => {
+    // Find or create the group element
+    let groupEl = panel.querySelector(`[data-source-id="${group.sourceWine.id}"]`);
+    if (!groupEl) {
+      groupEl = document.createElement('div');
+      groupEl.className = 'rec-group';
+      groupEl.dataset.sourceId = group.sourceWine.id;
+      groupEl.innerHTML = `
+        <div class="rec-group-title">
+          Because you're looking at <span class="rec-group-wine">&nbsp;${esc(group.sourceWine.name)}</span>
+        </div>
+        <div class="rec-grid"></div>`;
+      panel.appendChild(groupEl);
+    }
+
+    const grid = groupEl.querySelector('.rec-grid');
+    // Track which wine ids are already rendered in this grid
+    const rendered = new Set([...grid.querySelectorAll('.rec-card')].map(el => Number(el.dataset.wineId)));
+
+    group.recs.forEach(w => {
+      if (rendered.has(w.id)) return;
+      const col = (w.color||'').toLowerCase();
+      const dotCls = col==='red'?'d-red':col==='white'?'d-white':col==='sparkling'?'d-sparkling':col==='rose'||col==='rosé'?'d-rose':'d-other';
+      const ratings = parseRatings(w.professional_ratings);
+      const top = ratings[0];
+      const price = w.retail ? `$${parseFloat(w.retail).toFixed(0)}` : '—';
+      const imgHtml = w.image_url
+        ? `<img src="${escAttr(w.image_url)}" alt="" loading="lazy" onerror="this.style.display='none'">`
+        : `<div style="font-size:11px;color:var(--text3)">${col||'wine'}</div>`;
+      const card = document.createElement('div');
+      card.className = 'wine-card rec-card';
+      card.dataset.wineId = w.id;
+      card.onclick = () => openModal(w.id);
+      card.innerHTML = `
+        <div class="rec-badge">✦ rec</div>
+        <div class="card-img">
+          ${imgHtml}
+          <div class="color-dot ${dotCls}"></div>
+          <div class="card-hover">
+            <div class="h-region">${esc(w.region||'')}${w.country?' · '+esc(w.country):''}</div>
+            ${top?`<div class="h-score">${top.score}</div><div class="h-source">${esc(top.source)}</div>`:''}
+            <div class="h-price">${price}</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-name">${esc(w.name||'')}</div>
+          <div class="card-sub">${esc(w.producer||'')}</div>
+        </div>`;
+      grid.appendChild(card);
+    });
+  });
+}
+
+// ── Column filters ────────────────────────────────────────────────────────────
+// activeFilters: { [colKey]: Set of selected values }
+let activeFilters = {};
+let currentColorFilter = 'all'; // track color tab separately
+
+// Columns to skip (not useful as filters)
+const SKIP_COLS = new Set(['id','image_url','professional_ratings','name','producer','description','notes','tasting_notes']);
+
+// Label overrides for cleaner display
+const COL_LABELS = {
+  color:'Color', varietal:'Varietal', vintage:'Vintage', region:'Region',
+  country:'Country', appellation:'Appellation', abv:'ABV', retail:'Price',
+  volume_ml:'Volume', color:'Color'
+};
+
+function colLabel(key) {
+  return COL_LABELS[key] || key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+}
+
+function buildFilterUI() {
+  if (!wines.length) return;
+  const cols = Object.keys(wines[0]).filter(k => !SKIP_COLS.has(k));
+  const container = document.getElementById('filterCols');
+  container.innerHTML = '';
+  activeFilters = {};
+
+  cols.forEach(col => {
+    const vals = [...new Set(wines.map(w => w[col]).filter(v => v !== null && v !== undefined && v !== ''))]
+      .sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric:true}));
+    if (vals.length < 2 || vals.length > 200) return;
+
+    activeFilters[col] = new Set();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'f-col';
+    wrap.dataset.col = col;
+
+    const btn = document.createElement('button');
+    btn.className = 'f-col-btn';
+    btn.id = `fbtn-${col}`;
+    btn.textContent = colLabel(col);
+    btn.onclick = (e) => { e.stopPropagation(); toggleDropdown(col); };
+
+    wrap.appendChild(btn);
+    container.appendChild(wrap);
+  });
+
+  document.addEventListener('click', closeAllDropdowns);
+}
+
+// ── Single portal dropdown appended to body ───────────────────────────────────
+let _openDropCol = null;
+
+function getPortal() {
+  let p = document.getElementById('f-portal');
+  if (!p) {
+    p = document.createElement('div');
+    p.id = 'f-portal';
+    p.style.cssText = `
+      position: fixed; z-index: 99;
+      background: var(--surface2); border: 0.5px solid var(--border2);
+      border-radius: var(--r); min-width: 200px; max-height: 260px;
+      display: flex; flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    `;
+    p.onclick = e => e.stopPropagation();
+    document.body.appendChild(p);
+  }
+  return p;
+}
+
+function toggleDropdown(col) {
+  if (_openDropCol === col) { closeAllDropdowns(); return; }
+  closeAllDropdowns();
+  _openDropCol = col;
+
+  const btn = document.getElementById(`fbtn-${col}`);
+  const rect = btn.getBoundingClientRect();
+  const portal = getPortal();
+
+  // Search input
+  const search = document.createElement('input');
+  search.style.cssText = `
+    width:100%; padding:8px 10px; font-size:11px; color:var(--text);
+    background:transparent; border:none; border-bottom:0.5px solid var(--border2);
+    outline:none; flex-shrink:0;
+  `;
+  search.placeholder = `Search ${colLabel(col)}…`;
+
+  // Options list
+  const list = document.createElement('div');
+  list.style.cssText = 'overflow-y:auto; flex:1; scrollbar-width:thin;';
+
+  portal.innerHTML = '';
+  portal.appendChild(search);
+  portal.appendChild(list);
+
+  const renderOpts = (q) => {
+    const vals = [...new Set(wines.map(w => w[col]).filter(v => v !== null && v !== undefined && v !== ''))]
+      .sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric:true}));
+    const shown = q ? vals.filter(v => String(v).toLowerCase().includes(q.toLowerCase())) : vals;
+    list.innerHTML = '';
+    shown.forEach(v => {
+      const opt = document.createElement('div');
+      const selected = activeFilters[col]?.has(String(v));
+      opt.style.cssText = `padding:7px 11px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:7px; color:${selected?'var(--gold)':'var(--text2)'}`;
+      opt.innerHTML = `<span style="width:10px;font-size:10px">${selected?'✓':''}</span>${esc(String(v))}`;
+      opt.onmouseenter = () => { if(!selected) opt.style.color = 'var(--text)'; };
+      opt.onmouseleave = () => { if(!selected) opt.style.color = 'var(--text2)'; };
+      opt.onclick = (e) => { e.stopPropagation(); toggleFilterValue(col, String(v)); renderOpts(search.value); };
+      list.appendChild(opt);
+    });
+  };
+  search.oninput = () => renderOpts(search.value);
+  renderOpts('');
+
+  // Position portal below the button, flip up if near bottom
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const portalH = Math.min(260, 40 + Math.min(10, [...new Set(wines.map(w=>w[col]).filter(Boolean))].length) * 32);
+  const top = spaceBelow > portalH ? rect.bottom + 6 : rect.top - portalH - 6;
+  portal.style.top  = `${top}px`;
+  portal.style.left = `${rect.left}px`;
+  portal.style.display = 'flex';
+
+  setTimeout(() => search.focus(), 50);
+}
+
+function closeAllDropdowns() {
+  _openDropCol = null;
+  const p = document.getElementById('f-portal');
+  if (p) p.style.display = 'none';
+}
+
+function renderOptions(col, searchVal) { /* kept for compatibility — no-op now */ }
+
+function toggleFilterValue(col, val) {
+  if (!activeFilters[col]) activeFilters[col] = new Set();
+  if (activeFilters[col].has(val)) activeFilters[col].delete(val);
+  else activeFilters[col].add(val);
+  updateColBtn(col);
+  updatePills();
+  applyFilters();
+}
+
+function updateColBtn(col) {
+  const btn = document.querySelector(`.f-col[data-col="${col}"] .f-col-btn`);
+  if (!btn) return;
+  const count = activeFilters[col]?.size || 0;
+  btn.classList.toggle('has-value', count > 0);
+  btn.textContent = count > 0 ? `${colLabel(col)} (${count})` : colLabel(col);
+}
+
+function updatePills() {
+  const pills = document.getElementById('filterPills');
+  pills.innerHTML = '';
+  let total = 0;
+  Object.entries(activeFilters).forEach(([col, vals]) => {
+    vals.forEach(v => {
+      total++;
+      const pill = document.createElement('div');
+      pill.className = 'f-pill';
+      pill.innerHTML = `<span>${colLabel(col)}: <b>${v}</b></span><span class="f-pill-x" onclick="toggleFilterValue('${col}','${v}')">✕</span>`;
+      pills.appendChild(pill);
+    });
+  });
+  const count = document.getElementById('filterActiveCount');
+  const toggle = document.getElementById('filterToggle');
+  if (total > 0) {
+    count.textContent = total;
+    count.style.display = '';
+    toggle.classList.add('active');
+  } else {
+    count.style.display = 'none';
+    toggle.classList.remove('active');
+  }
+}
+
+function applyFilters() {
+  let result = [...wines];
+  // Apply color tab
+  if (currentColorFilter !== 'all') {
+    result = result.filter(w => (w.color||'').toLowerCase() === currentColorFilter);
+  }
+  // Apply each column filter (AND between columns, OR within a column)
+  Object.entries(activeFilters).forEach(([col, vals]) => {
+    if (!vals.size) return;
+    result = result.filter(w => vals.has(String(w[col] ?? '')));
+  });
+  filtered = result;
+  renderGrid();
+  document.getElementById('countLabel').textContent = `${filtered.length} of ${wines.length} bottles`;
+}
+
+function toggleFilterPanel() {
+  const panel = document.getElementById('filterPanel');
+  const btn   = document.getElementById('filterToggle');
+  panel.classList.toggle('open');
+  btn.classList.toggle('active', panel.classList.contains('open'));
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+recog = setupRecognition();
+
+window.onload = () => {
+  loadWines();
+  initSocket();
+};
+</script>
+</body>
+</html>

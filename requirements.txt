@@ -1,0 +1,7 @@
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+openai>=1.30.0          # used for Grok (OpenAI-compatible client)
+pandas>=2.2.0
+openpyxl>=3.1.0         # Excel support
+requests>=2.31.0
+python-dotenv>=1.0.0

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Cellar</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0e0c0a; --surface: #1a1714; --surface2: #231f1b;
+  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+  --text: #ede8e0; --text2: #9a9082; --text3: #5a5248;
+  --gold: #c9a84c; --gold2: #e8c97a;
+}
+
+html, body {
+  height: 100%; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+
+/* ── Noise grain overlay ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  opacity: 0.6;
+}
+
+/* ── Radial glow ── */
+.glow {
+  position: fixed; pointer-events: none; z-index: 0;
+  border-radius: 50%; filter: blur(80px); opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.glow-1 {
+  width: 500px; height: 500px; top: -100px; left: -100px;
+  background: radial-gradient(circle, rgba(139,74,47,0.18) 0%, transparent 70%);
+}
+.glow-2 {
+  width: 400px; height: 400px; bottom: -80px; right: -80px;
+  background: radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 70%);
+}
+body.loaded .glow { opacity: 1; }
+
+/* ── Layout ── */
+.stage {
+  position: relative; z-index: 1;
+  height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 0;
+  padding: 40px 24px;
+}
+
+/* ── Wordmark ── */
+.wordmark {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; margin-bottom: 48px;
+  opacity: 0; transform: translateY(16px);
+  transition: opacity 0.9s ease 0.1s, transform 0.9s ease 0.1s;
+}
+body.loaded .wordmark { opacity: 1; transform: translateY(0); }
+
+.wordmark-eyebrow {
+  font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--gold); opacity: 0.7;
+}
+.wordmark-title {
+  font-size: clamp(52px, 10vw, 96px);
+  font-weight: 300; letter-spacing: -0.03em;
+  color: var(--text); line-height: 1;
+}
+.wordmark-title em {
+  font-style: normal; color: var(--gold);
+}
+.wordmark-rule {
+  width: 40px; height: 0.5px; background: var(--border2); margin-top: 4px;
+}
+.wordmark-sub {
+  font-size: 13px; color: var(--text3); letter-spacing: 0.04em;
+  text-align: center; line-height: 1.6; max-width: 320px;
+}
+
+/* ── CTA ── */
+.cta {
+  opacity: 0; transform: translateY(10px);
+  transition: opacity 0.9s ease 0.45s, transform 0.9s ease 0.45s;
+}
+body.loaded .cta { opacity: 1; transform: translateY(0); }
+
+.enter-btn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 36px;
+  background: transparent;
+  border: 0.5px solid var(--border2);
+  border-radius: 40px;
+  color: var(--text2); font-size: 13px; letter-spacing: 0.06em;
+  text-transform: uppercase; text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.25s, color 0.25s, background 0.25s, transform 0.2s;
+  position: relative; overflow: hidden;
+}
+.enter-btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(201,168,76,0.06) 0%, transparent 60%);
+  opacity: 0; transition: opacity 0.3s;
+}
+.enter-btn:hover { border-color: var(--gold); color: var(--gold2); transform: translateY(-1px); }
+.enter-btn:hover::before { opacity: 1; }
+.enter-btn:active { transform: translateY(0); }
+
+.enter-btn svg { transition: transform 0.3s; }
+.enter-btn:hover svg { transform: translateX(3px); }
+
+/* ── Features ── */
+.features {
+  display: flex; gap: 32px; margin-top: 64px;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 0.9s ease 0.7s, transform 0.9s ease 0.7s;
+}
+body.loaded .features { opacity: 1; transform: translateY(0); }
+
+.feature {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  text-align: center;
+}
+.feature-icon { font-size: 18px; opacity: 0.6; }
+.feature-label { font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* ── Bottom mark ── */
+.bottom-mark {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; color: var(--text3); letter-spacing: 0.12em; text-transform: uppercase;
+  opacity: 0; transition: opacity 1s ease 1s;
+  z-index: 1;
+}
+body.loaded .bottom-mark { opacity: 0.4; }
+
+/* ── Enter animation ── */
+.stage.exiting {
+  animation: stage-exit 0.6s ease forwards;
+}
+@keyframes stage-exit {
+  to { opacity: 0; transform: scale(0.97); }
+}
+
+@media(max-width:480px) {
+  .features { flex-direction: column; gap: 16px; align-items: center; }
+  .wordmark-title { font-size: 56px; }
+}
+</style>
+</head>
+<body>
+
+<div class="glow glow-1"></div>
+<div class="glow glow-2"></div>
+
+<div class="stage" id="stage">
+
+  <div class="wordmark">
+    <div class="wordmark-eyebrow">Est. MMXXV</div>
+    <div class="wordmark-title">The <em>Cellar</em></div>
+    <div class="wordmark-rule"></div>
+    <div class="wordmark-sub">A curated collection, guided by a barkeep who knows every bottle</div>
+  </div>
+
+  <div class="cta">
+    <a class="enter-btn" href="#" onclick="enterCellar(event)">
+      Enter the Cellar
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    </a>
+  </div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">🍷</div>
+      <div class="feature-label">Curated Catalog</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🎙</div>
+      <div class="feature-label">Voice Guided</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">✦</div>
+      <div class="feature-label">AI Sommelier</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="bottom-mark">The Cellar · Private Collection</div>
+
+<script>
+window.addEventListener('load', () => {
+  setTimeout(() => document.body.classList.add('loaded'), 80);
+});
+
+function enterCellar(e) {
+  e.preventDefault();
+  const stage = document.getElementById('stage');
+  stage.classList.add('exiting');
+  setTimeout(() => { window.location.href = '/cellar'; }, 580);
+}
+</script>
+</body>
+</html>

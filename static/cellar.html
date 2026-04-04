@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Cellar</title>
+<link rel="stylesheet" href="/static/cellar.css?v=3">
+</head>
+<body>
+
+<header>
+  <h1>The Cellar</h1>
+  <div class="filter-row">
+    <button class="filter-btn on" onclick="filter('all',this)">All</button>
+    <button class="filter-btn" onclick="filter('red',this)">Red</button>
+    <button class="filter-btn" onclick="filter('white',this)">White</button>
+    <button class="filter-btn" onclick="filter('sparkling',this)">Sparkling</button>
+    <button class="filter-btn" onclick="filter('rose',this)">Rosé</button>
+    <button class="filter-btn rec-tab" id="recTab" onclick="filter('recommended',this)" style="display:none">✦ Recommended</button>
+  </div>
+  <button class="filter-toggle" id="filterToggle" onclick="toggleFilterPanel()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v2.5l-7 7V20l-4-2v-6.5L3 6.5V4z"/></svg>
+    Filters <span id="filterActiveCount" style="display:none;background:var(--gold);color:#0e0c0a;border-radius:20px;padding:0 5px;font-size:10px;font-weight:600"></span>
+  </button>
+  <span class="catalog-count" id="countLabel">Loading…</span>
+</header>
+
+<!-- Filter panel -->
+<div class="filter-panel" id="filterPanel">
+  <div class="filter-panel-clip">
+    <div class="filter-active-pills" id="filterPills"></div>
+    <div class="filter-panel-inner" id="filterCols"></div>
+  </div>
+</div>
+
+<div class="view-grid" id="viewGrid">
+  <div class="grid-wrap">
+    <div class="wine-grid" id="grid">
+      <div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--text3);font-size:14px">Loading wines…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Recommended panel — hidden until populated -->
+<div class="view-rec" id="viewRec" style="display:none">
+  <div class="rec-panel" id="recPanel"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modalBg" onclick="bgClose(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+
+    <div class="modal-top">
+      <div class="modal-img"><img id="mImg" src="" alt=""></div>
+      <div class="modal-info">
+        <div class="m-tag" id="mTag"></div>
+        <div class="m-name" id="mName"></div>
+        <div class="m-producer" id="mProd"></div>
+        <div class="m-chips" id="mChips"></div>
+        <div class="m-price" id="mPrice"></div>
+        <div class="ratings-row" id="mRatings"></div>
+      </div>
+    </div>
+
+    <!-- Chat transcript (read-only, synced from bench) -->
+    <div class="modal-chat" id="modalChat">
+      <div class="modal-chat-empty" id="modalChatEmpty">The barkeep will speak when you open a bottle…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bench bar ── -->
+<div class="bench">
+
+  <!-- Barkeep avatar -->
+  <div class="bench-keeper">
+    <img src="https://i.pravatar.cc/96?img=51" alt="Barkeep"
+      onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22><circle cx=%2224%22 cy=%2224%22 r=%2224%22 fill=%22%23231f1b%22/><text x=%2224%22 y=%2230%22 text-anchor=%22middle%22 font-size=%2220%22>🍷</text></svg>'">
+    <div class="bench-keeper-name">The Barkeep</div>
+    <div class="bench-keeper-status" id="bkStatus">ready when you are</div>
+  </div>
+
+  <!-- Orb — always-on listening indicator + stop button -->
+  <div class="bench-orb">
+    <div class="orb-wrap idle" id="orbWrap">
+      <div class="orb-ring"></div>
+      <div class="orb-ripple"></div>
+      <button class="orb-btn" id="orbBtn" aria-label="Mic status">
+        <svg viewBox="0 0 24 24"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-6 10a6 6 0 0 0 12 0h2a8 8 0 0 1-7 7.93V21h2v2H9v-2h2v-2.07A8 8 0 0 1 4 11h2z"/></svg>
+      </button>
+    </div>
+    <button class="stop-btn" id="stopBtn" onclick="stopBarkeep()">■ stop</button>
+  </div>
+
+  <!-- Bottle tasting row -->
+  <div class="bench-bottles" id="benchBottles">
+    <div class="bench-empty" id="benchEmpty">click a bottle to bring it to the bench…</div>
+  </div>
+
+  <!-- Live transcript -->
+  <div class="bench-transcript">
+    <div class="bench-you" id="benchYou"></div>
+    <div class="bench-bot" id="benchBot"></div>
+  </div>
+
+</div>
+
+<script src="/static/cellar.js?v=3"></script>
+</body>
+</html>
