@@ -11,12 +11,13 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from agent.router import router as agent_router
-from agent.data import load_dataset
+from agent.data import load_dataset, build_similarity_index
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     load_dataset()
     print("✅ Wine dataset loaded")
+    build_similarity_index()
     yield
 
 app = FastAPI(title="Wine Voice Explorer", lifespan=lifespan)

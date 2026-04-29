@@ -12,8 +12,8 @@ from fastapi import APIRouter, HTTPException, WebSocket
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from agent.agent import ask_agent, ask_barkeep, sanitize_for_json, llm, BARKEEP_SYSTEM
-from agent.data import get_schema, query_wines, get_dataframe
+from agent.agent import barkeep, sanitize_for_json
+from agent.data import get_schema, query_wines, get_dataframe, get_similar_wines
 
 load_dotenv()
 
@@ -42,35 +42,17 @@ def get_wines():
     return sanitize_for_json(records)
 
 
-class Message(BaseModel):
-    role: str
-    content: str
-
-
-class AskWineRequest(BaseModel):
-    question: str
-    wine: dict
-    history: list[Message]
-
-
-@router.post("/ask-wine")
-async def ask_wine(req: AskWineRequest):
-    clean_wine = sanitize_for_json(req.wine)
-    history = [{"role": m.role, "content": m.content} for m in req.history]
-    answer = ask_barkeep(question=req.question.strip(), wine=clean_wine, history=history)
-    return {"answer": answer}
-
-
 class AskRequest(BaseModel):
     question: str
 
 
 @router.post("/ask")
 async def ask(req: AskRequest):
+    """REST fallback — collects the full streaming response into one string."""
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Empty question")
-    answer = ask_agent(req.question.strip())
-    return {"answer": answer, "question": req.question}
+    tokens = [token async for token in barkeep(req.question.strip())]
+    return {"answer": "".join(tokens), "question": req.question}
 
 
 # ── WebSocket — true streaming via ElevenLabs WS input API ──────────────────
@@ -82,23 +64,24 @@ async def websocket_chat(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            req = json.loads(data)
+            req  = json.loads(data)
 
-            prompt = (
-                f"System: {BARKEEP_SYSTEM}\n"
-                f"Context: {json.dumps(req.get('wine'))}\n"
-                f"Q: {req.get('question')}"
-            )
+            wine     = req.get('wine')            # None → browsing mode
+            question = req.get('question', '').strip()
+            history  = req.get('history', [])
 
-            # 1. Stream LLM tokens to browser for the chat bubble,
-            #    accumulate full text for TTS
+            # ── One agent handles everything ──────────────────────────────────
+            # barkeep() yields either:
+            #   str  → LLM token, forward as text_chunk
+            #   dict → side-channel event (e.g. rec_wines), forward as-is
             full_text = []
-            async for chunk in llm.astream(prompt):
-                if chunk.content:
-                    await websocket.send_json(
-                        {"type": "text_chunk", "content": chunk.content}
-                    )
-                    full_text.append(chunk.content)
+            async for event in barkeep(question, wine=wine, history=history):
+                if isinstance(event, dict):
+                    # Side-channel event from a tool call — forward directly to browser
+                    await websocket.send_json(sanitize_for_json(event))
+                else:
+                    await websocket.send_json({"type": "text_chunk", "content": event})
+                    full_text.append(event)
 
             complete_text = "".join(full_text).strip()
             if not complete_text:
@@ -134,6 +117,27 @@ async def websocket_chat(websocket: WebSocket):
 
     except Exception as e:
         print(f"WebSocket Error: {e}")
+
+
+# ── Content-based recommendation endpoint ────────────────────────────────────
+
+@router.get("/similar/{wine_id}")
+def similar_wines(wine_id: int, top_k: int = 6):
+    """
+    Return top_k wines most similar to wine_id by cosine similarity.
+    Similarity is computed at startup over TF-IDF text + normalised numerics.
+    """
+    results = get_similar_wines(wine_id, top_k)
+    if results is None:
+        raise HTTPException(status_code=503, detail="Similarity index not ready")
+    # Parse professional_ratings JSON strings (same as /wines endpoint)
+    for r in results:
+        if isinstance(r.get("professional_ratings"), str):
+            try:
+                r["professional_ratings"] = json.loads(r["professional_ratings"])
+            except Exception:
+                r["professional_ratings"] = []
+    return sanitize_for_json(results)
 
 
 # ── Debug endpoints ──────────────────────────────────────────────────────────

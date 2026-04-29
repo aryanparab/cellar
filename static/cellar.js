@@ -10,6 +10,11 @@ let benchWines    = [];          // ordered list of wines on the bench
 let introduced    = new Set();   // wine IDs the barkeep has already pitched
 let wineMemory    = {};          // per-wine conversation history: { [id]: [{role,content}] }
 
+// In-flight request tracking (captures state at send time, not at callback time)
+let _streamingReply   = '';      // accumulates WS text_chunk content for reliable memory save
+let _pendingWineId    = null;    // id of the wine that issued the current in-flight request (null = global)
+let _pendingRecIntent = false;   // whether the in-flight request was a recommendation ask
+
 // VAD state
 let vadStream = null, vadAnalyser = null, vadProcessor = null, vadSource = null, vadContext = null;
 let vadActive = false;          // mic open and monitoring
@@ -47,20 +52,42 @@ function initSocket() {
       const d = JSON.parse(ev.data);
       if (d.type === 'text_chunk') {
         console.log(`[WS] text_chunk: "${d.content}"`);
+        _streamingReply += d.content;
         appendBotText(d.content);
+      } else if (d.type === 'rec_wines') {
+        // Tool-driven recommendation: the LLM called recommend_similar_wines_tool
+        // and the router forwarded the results here. source_wine_id tells us which
+        // wine was used as the seed — could differ from current (bench scenario).
+        const sourceWine = wines.find(w => w.id === d.source_wine_id) || current;
+        addSimilarToRecPanel(sourceWine, d.wines);
+        console.log('[REC] tool-driven recs for', sourceWine?.name, ':', (d.wines||[]).map(w => w.name));
       } else if (d.type === 'audio_done') {
-        console.log('[WS] audio_done — detecting recs then playing');
-        // Full text is now in benchBot — save and detect before audio starts
-        const reply = document.getElementById('benchBot')?.textContent?.trim();
-        if (reply && current) {
-          if (!wineMemory[current.id]) wineMemory[current.id] = [];
-          wineMemory[current.id].push({ role: 'assistant', content: reply });
-          memory.push({ role: 'assistant', content: reply });
-          if (window._recIntent) detectRecommendations(reply);
-          window._recIntent = false;
-          const chat = document.getElementById('modalChat');
-          if (chat) chat.querySelectorAll('.modal-chat-bot.streaming').forEach(el => el.classList.remove('streaming'));
+        // Drain captured state before anything async can change it
+        const reply     = _streamingReply.trim();
+        const pendingId = _pendingWineId;
+        const recIntent = _pendingRecIntent;
+        _streamingReply   = '';
+        _pendingWineId    = null;
+        _pendingRecIntent = false;
+
+        if (reply && pendingId != null) {
+          if (!wineMemory[pendingId]) wineMemory[pendingId] = [];
+          wineMemory[pendingId].push({ role: 'assistant', content: reply });
+          if (current?.id === pendingId) {
+            memory.push({ role: 'assistant', content: reply });
+            updateMemUI();
+          }
         }
+        // Fallback: if rec was intended but LLM didn't call the tool, fetch manually
+        if (recIntent && pendingId != null) {
+          const alreadyHasGroup = recGroups.some(g => g.sourceWine.id === pendingId);
+          if (!alreadyHasGroup) {
+            const srcWine = wines.find(w => w.id === pendingId);
+            if (srcWine) fetchSimilarWines(srcWine);
+          }
+        }
+        const chat = document.getElementById('modalChat');
+        if (chat) chat.querySelectorAll('.modal-chat-bot.streaming').forEach(el => el.classList.remove('streaming'));
         await playAccumulatedAudio();
       }
     }
@@ -108,7 +135,7 @@ async function playAccumulatedAudio() {
   speechDetected = false;
   if (vadActive) {
     setOrb('listening');
-    setTimeout(() => { if (vadActive && !recognizing) startRecognition(); }, 200);
+    rearmRecognition();
   } else setOrb('idle');
 }
 
@@ -213,28 +240,41 @@ function isRecIntent(q) {
 }
 
 function sendQuestion(q) {
-  console.log(`[SEND] sendQuestion called: "${q}" current=${current?.name}`);
-  if (!q || !current) { console.warn('[SEND] Aborted — no question or no wine selected'); return; }
-  window._introSourceId = null;
+  if (!q) return;
+  const isGlobal = !current;   // no wine in focus → route to catalog-search agent
+  console.log(`[SEND] "${q}" wine=${current?.name ?? '(global)'}`);
+
+  // Capture intent at send time — audio_done uses these, not live state
+  _pendingWineId    = current?.id ?? null;
+  _pendingRecIntent = !isGlobal && isRecIntent(q);
+  _streamingReply   = '';
+
   stopAudio();
-  clearTranscript();
-  document.getElementById('benchBot').textContent = '';
+  clearTranscript();   // clears benchYou, benchBot, streaming classes — no second clear needed
   setYouText(q);
   setOrb('thinking');
 
-  // Detect recommendation intent — will trigger rec tab population on reply
-  const recIntent = isRecIntent(q);
-  window._recIntent = recIntent;
+  let payload;
+  if (isGlobal) {
+    // Global browsing mode: backend uses catalog-search agent with tool-use
+    payload = { question: q, wine: null, history: [] };
+  } else {
+    const history = (wineMemory[current.id] || []).slice(-10);
+    const filters = activeFiltersList();
+    const contextParts = [];
+    if (benchWines.length > 1) contextParts.push(benchContext());
+    contextParts.push(`Active filters: ${filters.length ? filters.join('; ') : 'none'}.`);
+    if (_pendingRecIntent) contextParts.push('The user is asking for wine recommendations. Suggest wines that would complement or contrast well with the current wine based on what you know.');
+    const qWithContext = `[Context: ${contextParts.join(' ')}]\n${q}`;
+    payload = { question: qWithContext, wine: current, history };
 
-  const history = (wineMemory[current.id] || []).slice(-10);
-  const filters = activeFiltersList();
-  const contextParts = [];
-  if (benchWines.length > 1) contextParts.push(benchContext());
-  contextParts.push(`Active filters: ${filters.length ? filters.join('; ') : 'none'}.`);
-  if (recIntent) contextParts.push('The user is asking for recommendations — name specific wines from our catalog and end your reply with "I\'ve added these to your Recommended tab."');
-  const qWithContext = `[Context: ${contextParts.join(' ')}]\n${q}`;
+    // Push user turn to memory immediately (before response arrives)
+    if (!wineMemory[current.id]) wineMemory[current.id] = [];
+    wineMemory[current.id].push({ role: 'user', content: q });
+    memory.push({ role: 'user', content: q });
+    updateMemUI();
+  }
 
-  const payload = { question: qWithContext, wine: current, history };
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(payload));
   } else {
@@ -242,10 +282,6 @@ function sendQuestion(q) {
     initSocket();
     setTimeout(() => socket.send(JSON.stringify(payload)), 600);
   }
-  memory.push({ role: 'user', content: q });
-  if (!wineMemory[current.id]) wineMemory[current.id] = [];
-  wineMemory[current.id].push({ role: 'user', content: q });
-  updateMemUI();
 }
 
 // ── Stop barkeep + always-on VAD ─────────────────────────────────────────────
@@ -297,17 +333,21 @@ function setupRecognition() {
   r.onend = () => {
     console.log(`[RECOG] ended — recognizing=${recognizing} orbState=${orbState} vadActive=${vadActive}`);
     recognizing = false;
-    // With always-on VAD, re-arm whenever mic is running (not just when showing 'listening')
-    if (vadActive) {
-      setTimeout(() => {
-        if (vadActive && !recognizing && orbState !== 'thinking') {
-          startRecognition();
-        }
-      }, 300);
-    }
+    rearmRecognition();   // single canonical rearm — deduplicates with playAccumulatedAudio's rearm
   };
   r.onstart = () => console.log('[RECOG] 🎙️ Recognition started');
   return r;
+}
+
+// Single canonical place to restart recognition after audio ends or recognition ends.
+// Guards against double-start (playAccumulatedAudio and r.onend both call this).
+function rearmRecognition() {
+  if (!vadActive) return;
+  setTimeout(() => {
+    if (vadActive && !recognizing && orbState !== 'thinking' && orbState !== 'speaking') {
+      startRecognition();
+    }
+  }, 250);
 }
 
 function startRecognition() {
@@ -463,15 +503,17 @@ function removeFromBench(e, id) {
 }
 
 function autoIntroduce(w) {
-  // Stop any previous speech before introducing the new wine
   stopAudio();
   audioChunks = [];
+  _streamingReply   = '';
+  _pendingWineId    = w.id;   // capture now — audio_done saves to this wine's memory
+  _pendingRecIntent = false;
 
-  const wineId = w.id; // capture now — current may change by the time reply arrives
-  const ctx = benchWines.length > 1 ? ` (Other wines on the tasting bench: ${benchWines.filter(b=>b.id!==w.id).map(b=>b.name).join(', ')})` : '';
+  const ctx = benchWines.length > 1
+    ? ` (Other wines on the tasting bench: ${benchWines.filter(b => b.id !== w.id).map(b => b.name).join(', ')})`
+    : '';
   const pitch = `In 2-3 warm sentences, introduce this wine and make me want to try it. Don't ask questions.${ctx}`;
   clearTranscript();
-  document.getElementById('benchBot').textContent = '';
   setOrb('thinking');
   const payload = { question: pitch, wine: w, history: [] };
   if (socket && socket.readyState === WebSocket.OPEN) {
@@ -480,9 +522,7 @@ function autoIntroduce(w) {
     initSocket();
     setTimeout(() => socket.send(JSON.stringify(payload)), 600);
   }
-  wineMemory[w.id].push({ role: 'assistant', content: '(auto-introduction)' });
-  // Tag the pending intro source so detectRecommendations attributes correctly
-  window._introSourceId = wineId;
+  // audio_done handler saves the real intro text to wineMemory[_pendingWineId]
 }
 
 // ── Wine grid + modal ─────────────────────────────────────────────────────────
@@ -659,54 +699,52 @@ function bgClose(e) {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 // ── Recommended wines ─────────────────────────────────────────────────────────
-// Each entry: { sourceWine: {id, name}, recs: [{id, name, matchedText}] }
+// Each entry: { sourceWine: {id, name}, recs: [{...wine fields}] }
 let recGroups = [];
 
-function detectRecommendations(reply) {
-  const sourceId = window._introSourceId || current?.id;
-  const sourceWine = wines.find(w => w.id === sourceId) || current;
-  window._introSourceId = null;
-  if (!sourceWine) return;
+/**
+ * Push a pre-fetched list of similar wines into the rec panel for sourceWine.
+ * Called directly from the rec_wines WS message handler (tool-driven path)
+ * and from fetchSimilarWines (manual fetch fallback).
+ */
+function addSimilarToRecPanel(sourceWine, similar) {
+  if (!sourceWine || !similar?.length) return;
 
-  const replyLower = reply.toLowerCase();
   const benchIds = new Set(benchWines.map(w => w.id));
-
-  // Get wines already in THIS source group (don't re-add same wine to same group)
   const existingGroup = recGroups.find(g => g.sourceWine.id === sourceWine.id);
   const groupRecIds = new Set(existingGroup ? existingGroup.recs.map(r => r.id) : []);
 
-  const matched = wines.filter(w => {
-    if (benchIds.has(w.id)) return false;
-    if (groupRecIds.has(w.id)) return false;
-    const fullName = (w.name || '').toLowerCase();
-    // Only match on significant words (≥6 chars) to avoid generic terms
-    // like "blanc", "noir", "gran", "clos", "reserve", "estate"
-    const sigWords = fullName.split(/[\s,\-\/]+/).filter(word => word.length >= 6);
-    if (!sigWords.length) return false;
-    const matchedWords = sigWords.filter(word => replyLower.includes(word));
-    if (!matchedWords.length) return false;
-    // Require at least 2 matching significant words, OR 1 word that is rare
-    // (appears in ≤3 catalog wine names — i.e. it's a specific proper noun)
-    if (matchedWords.length >= 2) return true;
-    const word = matchedWords[0];
-    const rarity = wines.filter(x => (x.name||'').toLowerCase().includes(word)).length;
-    return rarity <= 3;
-  });
-
-  if (!matched.length) return;
+  const newRecs = similar.filter(w => !benchIds.has(w.id) && !groupRecIds.has(w.id));
+  if (!newRecs.length) return;
 
   let group = existingGroup;
   if (!group) {
     group = { sourceWine: { id: sourceWine.id, name: sourceWine.name }, recs: [] };
     recGroups.push(group);
   }
-  matched.forEach(w => group.recs.push(w));
+  newRecs.forEach(w => group.recs.push(w));
 
   renderRecPanel();
-
   const tab = document.getElementById('recTab');
   if (tab) tab.style.display = '';
-  console.log('[REC] Added under', sourceWine.name, ':', matched.map(w => w.name));
+  console.log('[REC]', sourceWine.name, '→', newRecs.map(w => w.name));
+}
+
+/**
+ * Fallback: manually fetch similar wines for sourceWine and add to rec panel.
+ * This path is only used if the LLM didn't call recommend_similar_wines_tool
+ * (e.g. the user triggered rec intent but the LLM answered from memory).
+ */
+async function fetchSimilarWines(sourceWine) {
+  if (sourceWine?.id == null) return;
+  try {
+    const res = await fetch(`${API}/similar/${sourceWine.id}?top_k=6`);
+    if (!res.ok) { console.warn('[REC] /similar returned', res.status); return; }
+    const similar = await res.json();
+    addSimilarToRecPanel(sourceWine, similar);
+  } catch (err) {
+    console.error('[REC] fetchSimilarWines error:', err);
+  }
 }
 
 function renderRecPanel() {
@@ -973,4 +1011,20 @@ recog = setupRecognition();
 window.onload = () => {
   loadWines();
   initSocket();
+
+  // Orb button — works at any time, even before a wine is on the bench:
+  //   • idle/listening  → start mic (enables browsing-mode voice)
+  //   • speaking        → barge-in / stop
+  //   • thinking        → no-op (already waiting on a reply)
+  document.getElementById('orbBtn').addEventListener('click', () => {
+    if (orbState === 'speaking')  { stopBarkeep(); return; }
+    if (orbState === 'thinking')  { return; }
+    if (!vadActive) {
+      // First tap: start always-on mic (browser will prompt for permission)
+      ensureVADRunning();
+    } else if (!recognizing) {
+      // Already listening but recognition not started — kick it manually
+      startRecognition();
+    }
+  });
 };
